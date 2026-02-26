@@ -66,6 +66,7 @@ Then run `/setup`. Claude Code handles everything: dependencies, authentication,
 | `/add-telegram` | Add Telegram channel |
 | `/add-voice-transcription` | Add WhatsApp voice transcription |
 | `/convert-to-apple-container` | Switch from Docker to Apple Container |
+| `/credentials` | Save browser cookies/sessions for authenticated automation (GoDaddy, LinkedIn, etc.) |
 | `/customize` | Add channels, integrations, change behavior |
 | `/debug` | Troubleshoot container and service issues |
 
