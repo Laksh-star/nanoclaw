@@ -6,6 +6,12 @@ Track of features, skills, and architectural decisions specific to BizClaw (fork
 
 ## v0.4 — Feb 26, 2026 (afternoon)
 
+### Maintenance
+- **Disk cleanup**: Freed ~9GB — removed `nanoclaw-agent:latest` (pre-rename stale image, 5GB) + buildkit container snapshots
+- **Deregistered inactive groups**: Removed `bhakthi-tv-test-ai`, `lns-test`, `my-ai-helper`, `ngmf-salesm-test` from DB + session/group folders. Active groups: `main`, `telegram`, `ngmf-salesm-tg`
+- **`scripts/cleanup.sh`**: New script — removes buildkit, stopped containers, old images. Run any time after a container build.
+
+
 ### Skills Added
 - **`/credentials`** — Browser session and cookie management. Saves `state save/load` sessions per site. Supports JSON key-value object and Cookie-Editor array formats for cookie injection via `eval`.
 
@@ -19,6 +25,15 @@ Track of features, skills, and architectural decisions specific to BizClaw (fork
 - **GoDaddy + Akamai**: Playwright blocked by bot detection on both godaddy.com and SSO login page. Cookie injection also blocked. Alternative: use GoDaddy REST API (`developer.godaddy.com`). See `groups/telegram/credentials/` for test artifacts.
 - **Scheduled tasks survive container rebuilds**: Tasks are in SQLite — container image changes don't affect them.
 - **Pino logger can freeze** after WhatsApp reconnect events. Symptom: service running, log file not updating. Fix: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw`.
+
+### Core Fixes (agent-runner propagation)
+- **`src/container-runner.ts`**: Agent-runner source now synced on EVERY container spawn (was: only on first spawn). Critical — any change to `ipc-mcp-stdio.ts` now takes effect immediately without manual intervention.
+- **`src/container-runner.ts`**: `writeTasksSnapshot` now writes all tasks to every group (was: filtered per-group). All Andys can see the full task list.
+- **`container/agent-runner/src/ipc-mcp-stdio.ts`**: `list_tasks` removed group filter — returns all tasks.
+
+### Groups
+- **`groups/telegram/CLAUDE.md`** created — documents task visibility, active recurring tasks, credentials folder. Now tracked in git.
+- **`groups/global/CLAUDE.md`** — added Scheduled Tasks section explaining `list_tasks` usage.
 
 ### GoDaddy API (TODO)
 - Domain search, purchase, DNS management via REST API
