@@ -138,7 +138,7 @@ Ask Claude Code directly: "Why isn't the scheduler running?" "What's in the rece
 
 BizClaw follows NanoClaw's **Skills over Features** philosophy. Don't add features to the core — contribute skills.
 
-To add a new capability, create `.claude/skills/your-skill/SKILL.md` with instructions for Claude Code to follow. See existing skills for examples.
+All skills live in [`.claude/skills/`](.claude/skills/). Each skill is a folder with a `SKILL.md` file — plain instructions that Claude Code follows when you run `/skill-name`. To add a new capability, create `.claude/skills/your-skill/SKILL.md`. See existing skills for examples.
 
 ## License
 
