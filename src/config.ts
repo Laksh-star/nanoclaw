@@ -7,12 +7,17 @@ import { readEnvFile } from './env.js';
 // Secrets are NOT read here — they stay on disk and are loaded only
 // where needed (container-runner.ts) to avoid leaking to child processes.
 const envConfig = readEnvFile([
+  'INSTANCE_NAME',
   'ASSISTANT_NAME',
   'ASSISTANT_HAS_OWN_NUMBER',
   'TELEGRAM_BOT_TOKEN',
   'TELEGRAM_ONLY',
 ]);
 
+export const INSTANCE_NAME =
+  (process.env.INSTANCE_NAME || envConfig.INSTANCE_NAME || 'bizclaw')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-');
 export const ASSISTANT_NAME =
   process.env.ASSISTANT_NAME || envConfig.ASSISTANT_NAME || 'Andy';
 export const ASSISTANT_HAS_OWN_NUMBER =
@@ -25,10 +30,12 @@ const PROJECT_ROOT = process.cwd();
 const HOME_DIR = process.env.HOME || os.homedir();
 
 // Mount security: allowlist stored OUTSIDE project root, never mounted into containers
+// Scoped per instance so multiple deployments on the same machine don't share allowlists
 export const MOUNT_ALLOWLIST_PATH = path.join(
   HOME_DIR,
   '.config',
-  'nanoclaw',
+  'bizclaw',
+  INSTANCE_NAME,
   'mount-allowlist.json',
 );
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
@@ -37,7 +44,7 @@ export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
 export const MAIN_GROUP_FOLDER = 'main';
 
 export const CONTAINER_IMAGE =
-  process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';
+  process.env.CONTAINER_IMAGE || `${INSTANCE_NAME}-agent:latest`;
 export const CONTAINER_TIMEOUT = parseInt(
   process.env.CONTAINER_TIMEOUT || '1800000',
   10,
