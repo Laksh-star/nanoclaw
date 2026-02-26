@@ -1,368 +1,214 @@
 ---
 name: credentials
-description: Manage browser sessions and credentials for automating tasks across websites. Save cookies, load sessions, and enable persistent browser automation.
+description: Manage browser sessions and credentials for automating tasks across websites. Save sessions after login, inject cookies from browser exports, and enable persistent browser automation. Use when user wants to automate tasks on sites they're logged into.
 allowed-tools: Bash, Read, Write, Edit
 ---
 
 # Credential Management Skill
 
-Securely manage browser cookies and sessions to enable Andy to automate tasks on websites where you're logged in.
+Save and reuse browser sessions so Andy can automate tasks on sites you're already logged into.
 
-## Quick Start
+## How It Works
 
-### Save Cookies
-When the user provides exported cookies from their browser:
-```
-User: "Save these cookies for godaddy: [JSON data]"
-Andy: Saves to /workspace/group/credentials/cookies/godaddy-cookies.json
-```
+Two approaches depending on what you have:
 
-### Load Session for Browser Task
+| You have | Use |
+|----------|-----|
+| Nothing yet — want to log in once and save | **Approach A: State save** |
+| JSON cookies exported from Cookie-Editor | **Approach B: Cookie injection** |
+
+> **Note:** Netscape format cookies (header says `# Netscape HTTP Cookie File`) are not directly usable. Re-export as JSON from Cookie-Editor, or use Approach A instead.
+
+---
+
+## Approach A: Login Once, Save State (Recommended)
+
+Best when you can log in interactively or the agent can fill the login form.
+
 ```bash
-# Before using agent-browser on a logged-in site:
-agent-browser open https://godaddy.com
-agent-browser cookies import /workspace/group/credentials/cookies/godaddy-cookies.json
-agent-browser open https://godaddy.com/domainsearch
-# Now authenticated as user
-```
+# 1. Open the login page
+agent-browser open https://godaddy.com/login
 
-### Save Session State
-```bash
-# After completing a task, save state for next time:
+# 2. Snapshot to find the login fields
+agent-browser snapshot -i
+
+# 3. Fill credentials (or navigate manually if 2FA needed)
+agent-browser fill @e1 "your@email.com"
+agent-browser fill @e2 "yourpassword"
+agent-browser click @e3
+
+# 4. Wait for login to complete
+agent-browser wait --url "**/dashboard"
+
+# 5. Save full session state (cookies + localStorage)
 agent-browser state save /workspace/group/credentials/sessions/godaddy-session.json
+agent-browser close
 ```
+
+**To reuse later:**
+```bash
+agent-browser state load /workspace/group/credentials/sessions/godaddy-session.json
+agent-browser open https://godaddy.com/dashboard
+# Now authenticated — continue with task
+```
+
+---
+
+## Approach B: Inject Cookies from JSON Export
+
+Use when you've exported cookies from Cookie-Editor (JSON format).
+
+**Step 1: Save the JSON cookie file**
+
+When user pastes JSON cookies, write them to:
+```
+/workspace/group/credentials/cookies/<sitename>-cookies.json
+```
+
+**Step 2: Open the site first, then inject**
+
+```bash
+# Must open the site BEFORE injecting (browser needs a page context)
+agent-browser open https://godaddy.com
+
+# Inject all cookies via JavaScript eval
+# Read the cookie file and build the eval string:
+COOKIES=$(cat /workspace/group/credentials/cookies/godaddy-cookies.json)
+
+agent-browser eval "
+  const cookies = $COOKIES;
+  cookies.forEach(c => {
+    let str = c.name + '=' + encodeURIComponent(c.value);
+    if (c.path) str += '; path=' + c.path;
+    if (c.secure) str += '; secure';
+    document.cookie = str;
+  });
+  document.cookie.split(';').length + ' cookies set';
+"
+
+# Reload to apply cookies
+agent-browser reload
+agent-browser wait --load networkidle
+
+# Verify you're logged in
+agent-browser snapshot -i
+
+# Save state so you don't need to re-inject next time
+agent-browser state save /workspace/group/credentials/sessions/godaddy-session.json
+agent-browser close
+```
+
+> **Why open first?** `eval` runs in the browser's JS context, not Node. The page must be loaded for `document.cookie` to work.
+
+> **Limitation:** `httpOnly` cookies cannot be set via `document.cookie` — they're only sent by the server. If the site uses httpOnly for its auth token, Approach A (state save) is more reliable.
+
+---
 
 ## Directory Structure
 
 ```
 /workspace/group/credentials/
-├── cookies/              # Exported browser cookies
-│   ├── godaddy-cookies.json
-│   ├── amazon-cookies.json
-│   └── linkedin-cookies.json
-├── sessions/            # Saved browser states
-│   ├── godaddy-session.json
-│   └── squarespace-session.json
-└── api-keys/           # API tokens
-    └── openai.txt
+├── cookies/          # Raw JSON cookie exports (temporary — use to bootstrap)
+│   └── godaddy-cookies.json
+└── sessions/         # Saved browser state (preferred for reuse)
+    └── godaddy-session.json
 ```
 
-## Commands
+Sessions are preferred over raw cookies because they include httpOnly cookies and localStorage.
 
-### Save Credentials
+---
 
-**Save cookies from user:**
-```
-When user says: "Save these cookies for <sitename>: <JSON>"
-1. Extract sitename (lowercase, no spaces)
-2. Write JSON to /workspace/group/credentials/cookies/<sitename>-cookies.json
-3. Confirm: "✓ Saved <sitename> cookies (expires in X days)"
-```
-
-**Save browser state:**
-```bash
-agent-browser state save /workspace/group/credentials/sessions/<sitename>-session.json
-```
-
-### Load Credentials
-
-**Auto-detect and load:**
-```
-When user asks to do something on a site (e.g., "Buy X on GoDaddy"):
-1. Check if credentials exist for that site
-2. Load cookies before navigating
-3. Proceed with task
-```
-
-**Manual load:**
-```bash
-# Load cookies only
-agent-browser cookies import /workspace/group/credentials/cookies/<sitename>-cookies.json
-
-# Load full session state
-agent-browser state load /workspace/group/credentials/sessions/<sitename>-session.json
-```
-
-### List Credentials
-
-**Show what's saved (recommended):**
-```bash
-cd /workspace/group/credentials && ./manage.sh list
-```
-
-**Alternative (manual):**
-```bash
-ls -lh /workspace/group/credentials/cookies/
-ls -lh /workspace/group/credentials/sessions/
-```
-
-Output format:
-```
-=== Saved Credentials ===
-
-Cookies:
-• godaddy-cookies.json (12 KB, modified 2 days ago)
-• amazon-cookies.json (8 KB, modified 1 week ago)
-
-Sessions:
-• godaddy-session.json (saved yesterday)
-```
-
-### Delete Credentials
-
-**Remove specific site (recommended):**
-```bash
-cd /workspace/group/credentials && ./manage.sh delete <sitename>
-```
-
-**Alternative (manual):**
-```bash
-rm /workspace/group/credentials/cookies/<sitename>-cookies.json
-rm /workspace/group/credentials/sessions/<sitename>-session.json
-```
-
-**Remove all:**
-```bash
-rm -rf /workspace/group/credentials/cookies/*
-rm -rf /workspace/group/credentials/sessions/*
-```
-
-### Helper Script
-
-A credential management helper script is available at `/workspace/group/credentials/manage.sh`:
+## Commands Reference
 
 ```bash
-# List all credentials
-./manage.sh list
+# Save/load full browser state (cookies + localStorage + session)
+agent-browser state save /workspace/group/credentials/sessions/<site>-session.json
+agent-browser state load /workspace/group/credentials/sessions/<site>-session.json
 
-# Check if credentials exist for a site
-./manage.sh check godaddy
+# Individual cookies
+agent-browser cookies                      # List current cookies
+agent-browser cookies set name value       # Set a single cookie
+agent-browser cookies clear                # Clear all cookies
 
-# Delete credentials for a site
-./manage.sh delete godaddy
-
-# Clean expired cookies
-./manage.sh clean-expired
+# JavaScript injection
+agent-browser eval "document.cookie = 'name=value; path=/'"
 ```
 
-## Cookie Format
+---
 
-Expected JSON format (from Cookie-Editor or EditThisCookie):
+## Common Workflows
+
+### First-time setup for a site
+```
+User: "Set up GoDaddy credentials"
+1. Ask: "Do you have JSON cookies from Cookie-Editor, or should I open the login page?"
+2. If JSON: Approach B → inject → state save
+3. If login page: Approach A → fill form → state save
+4. Confirm: "Saved GoDaddy session. Future tasks will load this automatically."
+```
+
+### Automated task with saved session
+```
+User: "Buy bizclaw.io on GoDaddy"
+1. Check: credentials/sessions/godaddy-session.json exists? → YES
+2. agent-browser state load credentials/sessions/godaddy-session.json
+3. agent-browser open https://godaddy.com/domainsearch/find?checkAvail=1&tld=com&domainToCheck=bizclaw.io
+4. Proceed with task
+5. agent-browser state save credentials/sessions/godaddy-session.json (update state)
+```
+
+### Session expired
+```
+If login fails after loading state (redirected to login page):
+1. Inform user: "GoDaddy session expired."
+2. Offer: "Should I log in again?" → Approach A
+3. Or: "Paste fresh cookies from Cookie-Editor" → Approach B
+4. Save updated state
+```
+
+### List saved credentials
+```bash
+echo "=== Sessions ===" && ls -lh /workspace/group/credentials/sessions/ 2>/dev/null || echo "(none)"
+echo "=== Cookie files ===" && ls -lh /workspace/group/credentials/cookies/ 2>/dev/null || echo "(none)"
+```
+
+### Delete credentials for a site
+```bash
+rm -f /workspace/group/credentials/sessions/<site>-session.json
+rm -f /workspace/group/credentials/cookies/<site>-cookies.json
+echo "Deleted <site> credentials"
+```
+
+---
+
+## Cookie Export Format (JSON)
+
+Cookie-Editor → Export → **JSON** (not Netscape):
+
 ```json
 [
   {
     "domain": ".godaddy.com",
-    "name": "auth_token",
+    "name": "auth_idp",
     "value": "abc123...",
     "path": "/",
-    "expires": 1735689600,
+    "expires": 1777689600,
     "httpOnly": true,
-    "secure": true
+    "secure": true,
+    "sameSite": "Lax"
   }
 ]
 ```
 
-## Common Workflows
-
-### Workflow 1: First-time Setup
-```
-User: "Save these cookies for godaddy: [paste JSON]"
-Andy:
-  1. Write to credentials/cookies/godaddy-cookies.json
-  2. Confirm saved
-  3. Ready for future GoDaddy tasks
-```
-
-### Workflow 2: Automated Task with Saved Credentials
-```
-User: "Buy bizclaw.io on GoDaddy"
-Andy:
-  1. Check: credentials/cookies/godaddy-cookies.json exists
-  2. agent-browser open godaddy.com
-  3. agent-browser cookies import credentials/cookies/godaddy-cookies.json
-  4. Navigate to domain search
-  5. Complete purchase
-  6. Save updated session state
-```
-
-### Workflow 3: Update Expired Credentials
-```
-User: "Update my GoDaddy cookies: [new JSON]"
-Andy:
-  1. Overwrite credentials/cookies/godaddy-cookies.json
-  2. Confirm updated
-```
-
-### Workflow 4: Multi-site Task
-```
-User: "Buy domain on GoDaddy, then post about it on LinkedIn"
-Andy:
-  1. Load godaddy-cookies.json → buy domain
-  2. Save GoDaddy state
-  3. Close browser
-  4. Load linkedin-cookies.json → post update
-  5. Save LinkedIn state
-```
-
-## Site Detection
-
-Auto-detect site from user requests:
-- "GoDaddy" / "godaddy.com" → godaddy-cookies.json
-- "Amazon" / "amazon.com" → amazon-cookies.json
-- "LinkedIn" / "linkedin.com" → linkedin-cookies.json
-- "Namecheap" → namecheap-cookies.json
-- "Squarespace" → squarespace-cookies.json
-
-Normalize to: lowercase, remove spaces, remove .com/etc.
-
-## Security Best Practices
-
-### ✅ Do:
-- Store cookies locally in /workspace/group/credentials/
-- Use .gitignore to prevent committing
-- Inform user when cookies expire
-- Delete credentials when user requests
-
-### ⚠️ Warn User:
-- Banking sites (suggest read-only access)
-- Cryptocurrency exchanges
-- Medical records
-- Password managers
-
-### ❌ Don't:
-- Send cookies to external services
-- Log cookie contents
-- Store in cloud/git
-- Keep after user says delete
-
-## Error Handling
-
-**Cookies not found:**
-```
-When user asks to use a site without saved credentials:
-"I don't have saved credentials for <site>. Would you like to:
-1. Export cookies from your browser (I'll guide you)
-2. Complete this manually in your browser
-3. Use a different site"
-```
-
-**Cookies expired:**
-```
-When login fails despite having cookies:
-"Your <site> session may have expired. Please:
-1. Export fresh cookies from your browser
-2. Send them to me to update"
-```
-
-**Invalid JSON:**
-```
-When user provides malformed cookie data:
-"The cookie format looks incorrect. Please:
-1. Ensure you exported as JSON (not Netscape format)
-2. Copy the entire output
-3. Try again"
-```
-
-## Examples
-
-### Example 1: Save GoDaddy Cookies
-```
-User: "Here are my GoDaddy cookies: [{\"domain\":\".godaddy.com\",\"name\":\"auth_token\",\"value\":\"xyz\"}]"
-
-Andy:
-1. Extract sitename: "godaddy"
-2. Write JSON to credentials/cookies/godaddy-cookies.json
-3. Response: "✓ Saved GoDaddy cookies to credentials/cookies/godaddy-cookies.json
-   Ready to use for GoDaddy automation!"
-```
-
-### Example 2: Use Saved Credentials
-```
-User: "Search for bizclaw.io on GoDaddy and add to cart"
-
-Andy:
-1. Check if credentials/cookies/godaddy-cookies.json exists → YES
-2. agent-browser open https://godaddy.com
-3. agent-browser cookies import credentials/cookies/godaddy-cookies.json
-4. agent-browser open https://godaddy.com/domainsearch
-5. Fill search: "bizclaw.io"
-6. Click "Add to Cart"
-7. Save state: agent-browser state save credentials/sessions/godaddy-session.json
-8. Response: "✓ Added bizclaw.io to cart ($59.99). Ready for checkout?"
-```
-
-### Example 3: List Credentials
-```
-User: "What credentials do I have saved?"
-
-Andy:
-1. ls credentials/cookies/
-2. ls credentials/sessions/
-3. Response:
-   "Saved credentials:
-   Cookies:
-   • godaddy-cookies.json (12 KB, 2 days old)
-   • amazon-cookies.json (8 KB, 1 week old)
-
-   Sessions:
-   • godaddy-session.json (saved yesterday)"
-```
-
-### Example 4: Delete Credentials
-```
-User: "Delete my GoDaddy credentials"
-
-Andy:
-1. rm credentials/cookies/godaddy-cookies.json
-2. rm credentials/sessions/godaddy-session.json
-3. Response: "✓ Deleted all GoDaddy credentials. Your cookies are now invalid."
-```
-
-## Integration with Agent-Browser
-
-Always use this pattern for authenticated browser tasks:
-
-```bash
-# 1. Start browser
-agent-browser open <site-url>
-
-# 2. Load credentials
-agent-browser cookies import /workspace/group/credentials/cookies/<sitename>-cookies.json
-
-# 3. Navigate to actual task page
-agent-browser open <task-specific-url>
-
-# 4. Perform task
-# ... (clicks, fills, etc.)
-
-# 5. Save updated state
-agent-browser state save /workspace/group/credentials/sessions/<sitename>-session.json
-
-# 6. Close browser
-agent-browser close
-```
-
-## Troubleshooting
-
-**"Login still failing after loading cookies"**
-1. Cookies may have expired → ask for fresh export
-2. Site may use additional security (2FA) → inform user
-3. Cookie format may be wrong → verify JSON structure
-
-**"Can't find cookie file"**
-1. Check filename matches pattern: <sitename>-cookies.json
-2. Verify directory: /workspace/group/credentials/cookies/
-3. List all files to confirm
-
-**"Session state not persisting"**
-1. Ensure saving after each task: agent-browser state save
-2. Check file was created: ls credentials/sessions/
-3. Try loading explicitly next time
+If user gives Netscape format (`# Netscape HTTP Cookie File` header), tell them:
+> "Please re-export as JSON from Cookie-Editor: click the export button and choose JSON format, not Netscape."
 
 ---
 
-## User Guide Reference
+## Security
 
-For detailed user instructions, see:
-- `/workspace/group/CREDENTIALS-GUIDE.md` - Complete user documentation
-- `/workspace/group/credentials/README.md` - Technical reference
+- Credentials stored in `/workspace/group/credentials/` — local to this group's container mount
+- Never log cookie values or session tokens in responses
+- Never send cookies to external services
+- Warn before automating on: banking, crypto exchanges, medical records
+- Delete on user request — don't retain after task if user asks
