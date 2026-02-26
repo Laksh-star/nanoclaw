@@ -9,6 +9,12 @@ Track of features, skills, and architectural decisions specific to BizClaw (fork
 ### Skills Added
 - **`/credentials`** — Browser session and cookie management. Saves `state save/load` sessions per site. Supports JSON key-value object and Cookie-Editor array formats for cookie injection via `eval`.
 
+### Bug Fixes
+- **`list_tasks` showed empty to non-main groups**: Two bugs:
+  1. `writeTasksSnapshot` filtered tasks per-group → fixed to write all tasks to every group's snapshot
+  2. Agent-runner source only copied on first spawn → fixed to always sync, so code changes to `ipc-mcp-stdio.ts` propagate immediately
+- **Container image rename breaks service**: After multi-tenant config renamed image to `bizclaw-agent:latest`, service failed (Apple Container tried to pull from Docker Hub). Fix: always rebuild after image name change.
+
 ### Known Limitations Documented
 - **GoDaddy + Akamai**: Playwright blocked by bot detection on both godaddy.com and SSO login page. Cookie injection also blocked. Alternative: use GoDaddy REST API (`developer.godaddy.com`). See `groups/telegram/credentials/` for test artifacts.
 - **Scheduled tasks survive container rebuilds**: Tasks are in SQLite — container image changes don't affect them.
