@@ -4,6 +4,23 @@ Track of features, skills, and architectural decisions specific to BizClaw (fork
 
 ---
 
+## v0.4 — Feb 26, 2026 (afternoon)
+
+### Skills Added
+- **`/credentials`** — Browser session and cookie management. Saves `state save/load` sessions per site. Supports JSON key-value object and Cookie-Editor array formats for cookie injection via `eval`.
+
+### Known Limitations Documented
+- **GoDaddy + Akamai**: Playwright blocked by bot detection on both godaddy.com and SSO login page. Cookie injection also blocked. Alternative: use GoDaddy REST API (`developer.godaddy.com`). See `groups/telegram/credentials/` for test artifacts.
+- **Scheduled tasks survive container rebuilds**: Tasks are in SQLite — container image changes don't affect them.
+- **Pino logger can freeze** after WhatsApp reconnect events. Symptom: service running, log file not updating. Fix: `launchctl kickstart -k gui/$(id -u)/com.nanoclaw`.
+
+### GoDaddy API (TODO)
+- Domain search, purchase, DNS management via REST API
+- No browser/session needed — API key based
+- Revisit: create `/add-godaddy` skill using `developer.godaddy.com` keys
+
+---
+
 ## v0.3 — Feb 26, 2026
 
 ### Multi-Tenant Config
