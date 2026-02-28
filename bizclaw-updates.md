@@ -4,6 +4,21 @@ Track of features, skills, and architectural decisions specific to BizClaw (fork
 
 ---
 
+## v0.5 — Feb 28, 2026
+
+### Skills Added
+- **`/agent-design`** — Design framework for new BizClaw capabilities. Run before building any tool, skill, or agent behavior. Encodes principles from Anthropic's "Lessons from Building Claude Code: Seeing like an Agent". Walks through: Tool vs Instruction, Knowledge vs Action, cognitive load check, Skill vs Core change, evolution check. Outputs a principled design doc. Includes a BizClaw design decisions log.
+
+### Design Decisions (from /agent-design framework)
+- **`/andy-guide` (progressive disclosure)** — Deferred. CLAUDE.md not at painful scale yet. Revisit at first client deployment or when 10+ skills exist.
+- **`TELEGRAM_ONLY=true`** — WhatsApp disabled. Andy is Telegram-only. Re-enable: set `TELEGRAM_ONLY=false` in `.env`, sync to `data/env/env`, restart service.
+
+### Collections Report Fixes
+- **HTML email formatting** — Updated task prompt to use `mimeType: multipart/alternative` + `htmlBody`. Report now renders as styled HTML in email clients (no more raw `**`, `##` tags).
+- **Verified working** — Test run confirmed: task fires correctly at 8 PM IST, email delivered, HTML formatted. Root cause of Feb 26 failure was WhatsApp reconnect event putting the main group queue in a bad state (not a timezone issue as originally diagnosed).
+
+---
+
 ## v0.4 — Feb 26, 2026 (afternoon)
 
 ### Maintenance
