@@ -18,7 +18,21 @@ echo "Building BizClaw agent container image..."
 echo "Instance: ${INSTANCE_NAME}"
 echo "Image: ${IMAGE_NAME}:${TAG}"
 
+# Copy local MCP servers into build context (only dist + package.json, cleaned up after build)
+TMDB_SRC="$HOME/mcp-server-tmdb"
+if [ -d "$TMDB_SRC" ]; then
+  echo "Copying mcp-server-tmdb into build context..."
+  mkdir -p "$SCRIPT_DIR/mcp-server-tmdb"
+  cp -r "$TMDB_SRC/dist" "$SCRIPT_DIR/mcp-server-tmdb/dist"
+  cp "$TMDB_SRC/package.json" "$SCRIPT_DIR/mcp-server-tmdb/package.json"
+else
+  echo "Warning: ~/mcp-server-tmdb not found — TMDB MCP will not be available in container"
+fi
+
 ${CONTAINER_RUNTIME} build -t "${IMAGE_NAME}:${TAG}" .
+
+# Clean up copied MCP source from build context
+rm -rf "$SCRIPT_DIR/mcp-server-tmdb"
 
 echo ""
 echo "Build complete!"

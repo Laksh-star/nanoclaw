@@ -32,6 +32,12 @@ ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 # Install agent-browser, claude-code, and MCP servers globally
 RUN npm install -g agent-browser @anthropic-ai/claude-code @gongrzhe/server-gmail-autoauth-mcp tavily-mcp
 
+# Install TMDB MCP (copied from host by build.sh — pre-built dist, no TypeScript compile needed)
+COPY mcp-server-tmdb/ /opt/mcp-server-tmdb/
+RUN cd /opt/mcp-server-tmdb && npm install --omit=dev --ignore-scripts && \
+    chmod +x /opt/mcp-server-tmdb/dist/index.js && \
+    ln -s /opt/mcp-server-tmdb/dist/index.js /usr/local/bin/mcp-server-tmdb
+
 # Create app directory
 WORKDIR /app
 

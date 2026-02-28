@@ -434,7 +434,8 @@ async function runQuery(
         'NotebookEdit',
         'mcp__nanoclaw__*',
         'mcp__gmail__*',
-        'mcp__tavily__*'
+        'mcp__tavily__*',
+        'mcp__tmdb__*'
       ],
       env: sdkEnv,
       permissionMode: 'bypassPermissions',
@@ -461,6 +462,13 @@ async function runQuery(
           args: [],
           env: {
             TAVILY_API_KEY: sdkEnv.TAVILY_API_KEY as string || '',
+          },
+        },
+        tmdb: {
+          command: 'mcp-server-tmdb',
+          args: [],
+          env: {
+            TMDB_API_KEY: sdkEnv.TMDB_API_KEY as string || '',
           },
         },
       },
